@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Silly Fools - Hook Guessing Game</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            font-family: 'Prompt', sans-serif;
+        }
+        body {
+            background-color: #111827;
+            color: #f3f4f6;
+            overflow-x: hidden;
+        }
+        /* Custom Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in {
+            animation: fadeIn 0.4s ease-out forwards;
+        }
+        .glass-panel {
+            background: rgba(31, 41, 55, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(75, 85, 99, 0.4);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+        .option-btn {
+            transition: all 0.2s ease;
+        }
+        .option-btn:hover:not(:disabled) {
+            transform: scale(1.02);
+            background-color: #374151;
+            border-color: #ef4444; /* Silly Fools red vibe */
+        }
+        .option-btn.correct {
+            background-color: #10b981;
+            border-color: #059669;
+            color: white;
+        }
+        .option-btn.wrong {
+            background-color: #ef4444;
+            border-color: #b91c1c;
+            color: white;
+        }
+        .option-btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+        /* Sound wave animation */
+        .bars {
+            display: flex;
+            align-items: flex-end;
+            height: 30px;
+            gap: 3px;
+        }
+        .bar {
+            width: 4px;
+            background-color: #ef4444;
+            border-radius: 2px;
+            animation: bounce 1s infinite alternate;
+        }
+        .bar:nth-child(1) { animation-delay: 0.1s; height: 40%; }
+        .bar:nth-child(2) { animation-delay: 0.2s; height: 80%; }
+        .bar:nth-child(3) { animation-delay: 0.3s; height: 60%; }
+        .bar:nth-child(4) { animation-delay: 0.4s; height: 100%; }
+        .bar:nth-child(5) { animation-delay: 0.5s; height: 50%; }
+        
+        @keyframes bounce {
+            0% { height: 20%; }
+            100% { height: 100%; }
+        }
+        .playing-text {
+            background: linear-gradient(90deg, #ef4444, #f59e0b);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <div id="start-screen" class="glass-panel w-full max-w-lg rounded-2xl p-8 text-center fade-in">
+        <div class="mb-6 flex justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>
+        </div>
+        <h1 class="text-3xl font-bold mb-2 uppercase tracking-wider text-red-500">SF Music Quiz</h1>
+        <h2 class="text-xl font-semibold mb-6 text-gray-300">แฟนพันธุ์แท้ Silly Fools (Grammy Era)</h2>
+        <p class="text-gray-400 mb-8 text-sm">ทดสอบความจำของคุณ! กดเล่นเสียงจำลองและดูเนื้อเพลงท่อนฮุก แล้วทายว่านี่คือเพลงอะไรจาก 15 ด่าน (เรียงจากง่ายไปยาก)</p>
+        <button id="start-btn" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 rounded-xl shadow-lg transition-transform hover:scale-105 uppercase tracking-wide">
+            เริ่มเกม
+        </button>
+    </div>
+
+    <div id="game-screen" class="glass-panel w-full max-w-lg rounded-2xl p-6 hidden flex-col h-[600px]">
+        <!-- Header -->
+        <div class="flex justify-between items-center mb-4">
+            <span class="text-sm font-semibold text-gray-400 bg-gray-800 px-3 py-1 rounded-full">ด่าน: <span id="level-display" class="text-red-400">1</span> / 15</span>
+            <span class="text-sm font-semibold text-gray-400 bg-gray-800 px-3 py-1 rounded-full">คะแนน: <span id="score-display" class="text-green-400">0</span></span>
+        </div>
+        
+        <!-- Progress Bar -->
+        <div class="w-full bg-gray-700 rounded-full h-1.5 mb-8">
+            <div id="progress-bar" class="bg-red-500 h-1.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+        </div>
+
+        <!-- Audio Player Simulation Area -->
+        <div class="flex-grow flex flex-col items-center justify-center bg-gray-900 rounded-xl p-6 border border-gray-700 mb-6 relative overflow-hidden">
+            <div id="audio-visualizer" class="hidden mb-4">
+                <div class="bars">
+                    <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
+                </div>
+            </div>
+            
+            <button id="play-btn" class="bg-white text-black rounded-full p-4 hover:bg-gray-200 transition-transform hover:scale-110 z-10 shadow-lg">
+                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+            </button>
+            
+            <p id="hint-text" class="text-center text-lg font-medium mt-4 min-h-[60px] flex items-center justify-center italic text-gray-400 opacity-0 transition-opacity duration-500">
+                (กดปุ่มเพื่อฟังท่อนฮุก)
+            </p>
+        </div>
+
+        <!-- Multiple Choice Options -->
+        <div id="options-container" class="grid grid-cols-2 gap-3 mt-auto">
+            <!-- Buttons injected via JS -->
+        </div>
+    </div>
+
+    <div id="result-screen" class="glass-panel w-full max-w-lg rounded-2xl p-8 text-center hidden">
+        <h2 class="text-3xl font-bold mb-2 text-white">จบเกม!</h2>
+        <p class="text-gray-400 mb-6">คุณคือแฟนพันธุ์แท้ระดับไหน?</p>
+        
+        <div class="text-6xl font-black text-red-500 mb-2" id="final-score">0</div>
+        <div class="text-sm text-gray-500 mb-6">จาก 15 คะแนนเต็ม</div>
+        
+        <div id="rank-message" class="text-xl font-semibold mb-8 text-yellow-400">
+            <!-- Rank injected via JS -->
+        </div>
+        
+        <button id="restart-btn" class="w-full bg-gray-700 hover:bg-gray-600 border border-gray-500 text-white font-bold py-3 rounded-xl transition-all">
+            เล่นใหม่อีกครั้ง
+        </button>
+    </div>
+
+    <script>
+        // Game Data (15 Levels from Easy to Hard)
+        const questions = [
+            // Easy
+            { hint: "จิ๊จ๊ะไปทำไม รักฉันบ้างไหมคนดี...", answer: "จิ๊จ๊ะ", options: ["จิ๊จ๊ะ", "น้ำลาย", "ขี้หึง", "วัดใจ"] },
+            { hint: "ไม่ว่าจะสูงแค่ไหนก็ไปถึง ไม่มีคำว่าสูงวัดได้หากใจถึง...", answer: "วัดใจ", options: ["สู้ไม่ได้", "วัดใจ", "น้ำลาย", "ผิดที่ไว้ใจ"] },
+            { hint: "ก็ฉันขี้หึง เวลาที่เธอยิ้มให้ใคร...", answer: "ขี้หึง", options: ["เพียงรัก", "อย่าบอกว่ารัก", "ขี้หึง", "แกล้ง"] },
+            { hint: "แต่เป็นน้ำลาย...ที่ไหลรินรดจากปากเธอ...", answer: "น้ำลาย", options: ["บ้าบอ", "คนที่ฆ่าฉัน", "จิ๊จ๊ะ", "น้ำลาย"] },
+            { hint: "ผิดที่ฉัน...ไว้ใจ... ปล่อยให้เธอนั้นทำร้ายกัน...", answer: "ผิดที่ไว้ใจ", options: ["แกล้ง", "ผิดที่ไว้ใจ", "เมื่อรักฉันเกิด", "ไหนว่าจะไม่หลอกกัน"] },
+            // Medium
+            { hint: "อย่าบอกว่ารัก อย่าบอกว่าหลง อย่าบอกฉันเลย...", answer: "อย่าบอกว่ารัก", options: ["อย่าบอกว่ารัก", "ฟังดูง่ายๆ", "เพียงรัก", "เพลงนี้เกี่ยวกับความรัก"] },
+            { hint: "สิ่งที่ฉันให้ไป ไม่เคยมีความหมาย...", answer: "สู้ไม่ได้", options: ["น้ำลาย", "สู้ไม่ได้", "ขี้หึง", "แกล้ง"] },
+            { hint: "เมื่อรักฉันเกิด เธอได้เดินจากไป...", answer: "เมื่อรักฉันเกิด", options: ["ไหนว่าจะไม่หลอกกัน", "เพียงรัก", "คนที่ฆ่าฉัน", "เมื่อรักฉันเกิด"] },
+            { hint: "ร่องรอย...ของการสูญเสีย... คนที่ฆ่าฉัน...", answer: "คนที่ฆ่าฉัน", options: ["คนที่ฆ่าฉัน", "ผิดที่ไว้ใจ", "อย่าบอกว่ารัก", "จิ๊จ๊ะ"] },
+            { hint: "ไหนว่าจะไม่หลอกกัน ไหนว่าเธอจะมีฉัน...", answer: "ไหนว่าจะไม่หลอกกัน", options: ["แกล้ง", "ไหนว่าจะไม่หลอกกัน", "เพียงรัก", "ฟังดูง่ายๆ"] },
+            // Hard
+            { hint: "อย่ามา แกล้ง ให้ฉันรักเธอ...", answer: "แกล้ง", options: ["บ้าบอ", "เพลงนี้เกี่ยวกับความรัก", "แกล้ง", "สู้ไม่ได้"] },
+            { hint: "นี่คือสิ่งเดียวที่ฉันนั้นมี เพียงรักที่ฉันมี...", answer: "เพียงรัก", options: ["เมื่อรักฉันเกิด", "เพียงรัก", "อย่าบอกว่ารัก", "คนที่ฆ่าฉัน"] },
+            { hint: "เธอมันบ้าบอ... เธอมันบ้าบอ...", answer: "บ้าบอ", options: ["บ้าบอ", "จิ๊จ๊ะ", "น้ำลาย", "วัดใจ"] },
+            { hint: "มันฟังดูง่ายดาย... แต่ทำไม่ได้...", answer: "ฟังดูง่ายๆ", options: ["แกล้ง", "ฟังดูง่ายๆ", "เพียงรัก", "สู้ไม่ได้"] },
+            { hint: "เพลงนี้เกี่ยวกับความรัก มันเกี่ยวกับหัวใจ...", answer: "เพลงนี้เกี่ยวกับความรัก", options: ["เมื่อรักฉันเกิด", "อย่าบอกว่ารัก", "เพลงนี้เกี่ยวกับความรัก", "ไหนว่าจะไม่หลอกกัน"] }
+        ];
+
+        // State Variables
+        let currentLevel = 0;
+        let score = 0;
+        let isPlaying = false;
+        let audioContext = null;
+
+        // DOM Elements
+        const startScreen = document.getElementById('start-screen');
+        const gameScreen = document.getElementById('game-screen');
+        const resultScreen = document.getElementById('result-screen');
+        const startBtn = document.getElementById('start-btn');
+        const restartBtn = document.getElementById('restart-btn');
+        const playBtn = document.getElementById('play-btn');
+        const hintText = document.getElementById('hint-text');
+        const optionsContainer = document.getElementById('options-container');
+        const levelDisplay = document.getElementById('level-display');
+        const scoreDisplay = document.getElementById('score-display');
+        const progressBar = document.getElementById('progress-bar');
+        const visualizer = document.getElementById('audio-visualizer');
+
+        // Simple Web Audio API Synthesizer to simulate playing audio
+        function playSimulatedAudio(durationMs) {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if(audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+
+            const osc = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            // Rock/Electric vibe simulation (Sawtooth wave)
+            osc.type = 'sawtooth';
+            // Play a generic power chord frequency
+            osc.frequency.setValueAtTime(110, audioContext.currentTime); // A2
+            osc.frequency.exponentialRampToValueAtTime(110.5, audioContext.currentTime + 0.1);
+
+            gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+            gainNode.gain.linearRampToValueAtTime(0.1, audioContext.currentTime + 0.1);
+            gainNode.gain.setValueAtTime(0.1, audioContext.currentTime + (durationMs/1000) - 0.5);
+            gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + (durationMs/1000));
+
+            osc.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            osc.start();
+            osc.stop(audioContext.currentTime + (durationMs/1000));
+        }
+
+        function initGame() {
+            currentLevel = 0;
+            score = 0;
+            scoreDisplay.textContent = score;
+            startScreen.classList.add('hidden');
+            resultScreen.classList.add('hidden');
+            gameScreen.classList.remove('hidden');
+            gameScreen.classList.add('flex');
+            loadLevel();
+        }
+
+        // Helper to shuffle array (Choices)
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        function loadLevel() {
+            if (currentLevel >= questions.length) {
+                endGame();
+                return;
+            }
+
+            const q = questions[currentLevel];
+            isPlaying = false;
+            
+            // Update UI
+            levelDisplay.textContent = currentLevel + 1;
+            progressBar.style.width = `${((currentLevel) / questions.length) * 100}%`;
+            
+            // Reset Audio Area
+            playBtn.classList.remove('hidden');
+            visualizer.classList.add('hidden');
+            hintText.style.opacity = '1';
+            hintText.className = "text-center text-lg font-medium mt-4 min-h-[60px] flex items-center justify-center italic text-gray-500";
+            hintText.textContent = "(กดปุ่ม 🎵 เพื่อฟังท่อนฮุก)";
+            
+            // Render Options
+            optionsContainer.innerHTML = '';
+            // Shuffle the pre-defined options to avoid predictability
+            const shuffledOptions = shuffleArray([...q.options]);
+            
+            shuffledOptions.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.className = "option-btn bg-gray-800 border border-gray-600 text-white rounded-xl py-3 px-2 font-medium text-sm sm:text-base";
+                btn.textContent = opt;
+                btn.disabled = true; // Disabled until audio is played
+                btn.onclick = () => checkAnswer(opt, btn);
+                optionsContainer.appendChild(btn);
+            });
+            
+            // Animation
+            gameScreen.classList.remove('fade-in');
+            void gameScreen.offsetWidth; // Trigger reflow
+            gameScreen.classList.add('fade-in');
+        }
+
+        playBtn.addEventListener('click', () => {
+            if(isPlaying) return;
+            isPlaying = true;
+            
+            const q = questions[currentLevel];
+            
+            // UI Changes
+            playBtn.classList.add('hidden');
+            visualizer.classList.remove('hidden');
+            
+            hintText.classList.remove('text-gray-500', 'italic');
+            hintText.classList.add('playing-text', 'text-xl');
+            
+            // Typewriter effect for lyrics
+            hintText.textContent = "";
+            let i = 0;
+            const textToType = `"${q.hint}"`;
+            
+            // Play Synth
+            playSimulatedAudio(3000); // Play sound for 3 seconds
+            
+            const typeWriter = setInterval(() => {
+                if (i < textToType.length) {
+                    hintText.textContent += textToType.charAt(i);
+                    i++;
+                } else {
+                    clearInterval(typeWriter);
+                    // Enable answering
+                    visualizer.classList.add('hidden');
+                    const btns = optionsContainer.querySelectorAll('button');
+                    btns.forEach(btn => {
+                        btn.disabled = false;
+                        btn.classList.add('hover:bg-gray-700');
+                    });
+                }
+            }, 60); // Speed of typing
+        });
+
+        function checkAnswer(selectedOpt, btnElement) {
+            const btns = optionsContainer.querySelectorAll('button');
+            btns.forEach(b => b.disabled = true); // Disable all
+            
+            const correctOpt = questions[currentLevel].answer;
+            
+            if (selectedOpt === correctOpt) {
+                // Correct
+                btnElement.classList.add('correct');
+                score++;
+                scoreDisplay.textContent = score;
+            } else {
+                // Wrong
+                btnElement.classList.add('wrong');
+                // Highlight correct one
+                btns.forEach(b => {
+                    if(b.textContent === correctOpt) b.classList.add('correct');
+                });
+            }
+            
+            // Move to next level after delay
+            setTimeout(() => {
+                currentLevel++;
+                loadLevel();
+            }, 1500);
+        }
+
+        function endGame() {
+            gameScreen.classList.remove('flex');
+            gameScreen.classList.add('hidden');
+            resultScreen.classList.remove('hidden');
+            
+            document.getElementById('final-score').textContent = score;
+            const rankEl = document.getElementById('rank-message');
+            
+            if (score === 15) {
+                rankEl.textContent = "🏆 โตมากับวงนี้ชัดๆ! (Legend)";
+                rankEl.className = "text-xl font-semibold mb-8 text-yellow-400";
+            } else if (score >= 10) {
+                rankEl.textContent = "🎸 แฟนเพลงตัวยง (Hardcore Fan)";
+                rankEl.className = "text-xl font-semibold mb-8 text-blue-400";
+            } else if (score >= 5) {
+                rankEl.textContent = "🎧 คนเคยฟัง (Casual Listener)";
+                rankEl.className = "text-xl font-semibold mb-8 text-green-400";
+            } else {
+                rankEl.textContent = "🤔 เพิ่งเคยรู้จักใช่ไหม? (Newbie)";
+                rankEl.className = "text-xl font-semibold mb-8 text-gray-400";
+            }
+        }
+
+        // Event Listeners
+        startBtn.addEventListener('click', initGame);
+        restartBtn.addEventListener('click', initGame);
+
+    </script>
+</body>
+</html>
